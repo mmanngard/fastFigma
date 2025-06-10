@@ -5,7 +5,7 @@ import requests
 import json
 from pydantic import BaseModel, computed_field
 
-#from fasthtml.common import Div, P, Img
+from fasthtml.common import Div, P, Img
 
 class FigmaProject(BaseModel):
     url: str
