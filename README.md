@@ -13,3 +13,7 @@ Avtivate virtual envoronment.
 ```bash
 uv init
 ```
+Install ``fastFigma` package
+```bash
+uv pip install -e .
+```

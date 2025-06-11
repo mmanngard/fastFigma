@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 from fasthtml.common import fast_app, Html, Body, Div
 from .components.head import get_head_component
-from fastFigma.figma import FigmaProject, figma_node_to_fasthtml
+from fastFigma.project import FigmaProject
+from fastFigma.export import figma_to_fasthtml
 
 load_dotenv()
 
@@ -22,7 +23,7 @@ app, rt = fast_app(
 
 @rt("/")
 def home():
-    widgets = [figma_node_to_fasthtml(node) for node in ui_elements]
+    widgets = [figma_to_fasthtml(node) for node in ui_elements]
 
     return Html(
         get_head_component(),
