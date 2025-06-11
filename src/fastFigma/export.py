@@ -1,11 +1,33 @@
 # export.py
-
+import inspect
 from typing import Any, Dict, List, Union, Optional
 from pydantic import BaseModel
 from fasthtml.common import Div, P, Img
-from fastFigma.schema import FrameNode, TextNode, VectorNode
+from fastFigma.schema import FrameNode, TextNode, VectorNode, Effect
 
 Node = Union[Dict[str, Any], FrameNode, TextNode, VectorNode]
+
+# ─── Helper to map a single Effect → Tailwind utilities ───────
+
+def effect_to_tailwind(e: Effect) -> List[str]:
+    cls: List[str] = []
+    if e.type in ("DROP_SHADOW", "INNER_SHADOW") and e.offset and e.radius and e.color:
+        x = int(e.offset["x"])
+        y = int(e.offset["y"])
+        r = int(e.radius)
+        c = e.color
+        rgba = f"rgba({int(c.r*255)},{int(c.g*255)},{int(c.b*255)},{c.a})"
+
+        # Drop shadows use the drop-shadow utility
+        if e.type == "DROP_SHADOW":
+            cls.append(f"drop-shadow-[{x}px_{y}px_{r}px_{rgba}]")
+
+        # Inner shadows combine `shadow-inner` with a shadow offset
+        elif e.type == "INNER_SHADOW":
+            # Tailwind has `shadow-inner`, but to mimic the same blur/offset we can chain an arbitrary drop-shadow
+            cls.append("shadow-inner")
+            cls.append(f"drop-shadow-[{x}px_{y}px_{r}px_{rgba}]")
+    return cls
 
 # ─── Declarative Tailwind maps ──────────────────────────────
 
@@ -57,6 +79,11 @@ FRAME_TW_MAP: Dict[str, Union[Dict[Any, List[str]], Any]] = {
         for p in paints or []
         if p.type == "SOLID" and p.color
     ],
+
+    # Effects (drop/inner shadows)
+    "effects": lambda effs, m=None: [
+        cls for e in effs or [] for cls in effect_to_tailwind(e)
+    ],
 }
 
 TEXT_TW_MAP: Dict[str, Union[Dict[Any, List[str]], Any]] = {
@@ -79,12 +106,18 @@ TEXT_TW_MAP: Dict[str, Union[Dict[Any, List[str]], Any]] = {
         for p in paints or []
         if p.type == "SOLID" and p.color
     ],
+    "effects": lambda effs, m=None: [
+        cls for e in effs or [] for cls in effect_to_tailwind(e)
+    ],
 }
 
 VECTOR_TW_MAP: Dict[str, Union[Dict[Any, List[str]], Any]] = {
     "absoluteBoundingBox": FRAME_TW_MAP["absoluteBoundingBox"],
     # Vectors don’t get borders by default—map only size & fills if needed
     "fills": FRAME_TW_MAP.get("strokes", lambda _: []),  # if you want fill‐as‐bg
+    "effects": lambda effs, m=None: [
+        cls for e in effs or [] for cls in effect_to_tailwind(e)
+    ],
 }
 # ─── Generic helpers ────────────────────────────────────────
 def tw_from_map(
@@ -100,11 +133,12 @@ def tw_from_map(
         if isinstance(mapper, dict):
             cls += mapper.get(val, [])
         else:
-            # call either with (val, m) or just (val)
-            try:
-                cls += mapper(val, m)
-            except TypeError:
+            # inspect mapper signature
+            sig = inspect.signature(mapper)
+            if len(sig.parameters) == 1:
                 cls += mapper(val)
+            else:
+                cls += mapper(val, m)
 
     if m.name:
         cls.append(m.name)
@@ -121,7 +155,7 @@ def parse_node(node: Node) -> Union[FrameNode, TextNode, VectorNode]:
         return TextNode.model_validate(node)
     if t == "VECTOR":
         return VectorNode.model_validate(node)
-    return FrameNode.model_validate(node)  # fallback
+    return FrameNode.model_validate(node)
 
 def render_node(
     m: Union[FrameNode, TextNode, VectorNode],
@@ -140,12 +174,10 @@ def render_node(
 
     if isinstance(m, TextNode):
         return P(m.characters or "", **attrs)
-
     if isinstance(m, VectorNode):
         src = svg_map.get(m.id, "") if svg_map else ""
         return Img(src=src, alt=m.name or "", **attrs)
 
-    # Frame fallback
     children = [figma_to_fasthtml(c, svg_map) for c in (m.children or [])]
     return Div(*children, **attrs)
 
@@ -153,8 +185,5 @@ def figma_to_fasthtml(
     node: Node,
     svg_map: Optional[Dict[str, str]] = None
 ):
-    """
-    Parse and render a Figma node into a Tailwind‐styled FastHTML element.
-    """
-    model = parse_node(node)
+    model = node if isinstance(node, BaseModel) else parse_node(node)
     return render_node(model, svg_map)
