@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Union, Optional
 from pydantic import BaseModel
 from fasthtml.common import Div, P, Img, Safe
 from fastFigma.schema import FrameNode, TextNode, VectorNode, Effect
+from fastFigma.api import resolve_value
 
 Node = Union[Dict[str, Any], FrameNode, TextNode, VectorNode]
 
@@ -173,7 +174,10 @@ def render_node(
         attrs["cls"] = " ".join(tw)
 
     if isinstance(m, TextNode):
-        return P(m.characters or "", **attrs)
+        text = m.characters or ""
+        if m.name and m.name.startswith("$api@"):
+            text = resolve_value(m.name)
+        return P(text, **attrs)
     
     if isinstance(m, VectorNode):
         svg = svg_map.get(m.id, "") if svg_map else ""
