@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from fasthtml.common import Div, P, Img, Safe
 from fastFigma.schema import FrameNode, TextNode, VectorNode, Effect
 from fastFigma.api import resolve_value
+import json
+import urllib.parse
 
 Node = Union[Dict[str, Any], FrameNode, TextNode, VectorNode]
 
@@ -175,17 +177,37 @@ def render_node(
 
     if isinstance(m, TextNode):
         text = m.characters or ""
-        if m.name and m.name.startswith("$api@"):
-            text = resolve_value(m.name)
+
+        if m.name and m.name.strip().startswith("$api"):
+            # Try to parse JSON payload
+            try:
+                config = json.loads(m.name.replace("$api", "", 1).strip())
+                src = config.get("src")
+                path = config.get("path")
+                trigger = config.get("trigger", "once")
+
+                print(f"!!!!! {src}")
+
+                # Build HTMX attributes
+                encoded_src = urllib.parse.quote(src, safe='')
+                attrs["hx-get"] = f"/api/value?src={encoded_src}&path={path}"
+                attrs["hx-swap"] = "innerHTML"
+                attrs["hx-trigger"] = "load" if trigger == "once" else "every 1s"
+
+                # Placeholder value until HTMX replaces it
+                text = "..."
+
+            except Exception as e:
+                print(f"⚠️ Invalid $api config in {m.name}: {e}")
+                text = "?"
+
         return P(text, **attrs)
-    
+
     if isinstance(m, VectorNode):
         svg = svg_map.get(m.id, "") if svg_map else ""
         if svg.strip().startswith("<svg"):
-            # This is raw markup — insert inline safely
             return Div(Safe(svg), **attrs)
         else:
-            # Fallback: treat it as a URL for <img>
             return Img(src=svg, alt=m.name or "", **attrs)
 
     children = [figma_to_fasthtml(c, svg_map) for c in (m.children or [])]

@@ -1,29 +1,30 @@
 import requests
+import json
+import re
+from typing import Union
+from typing import Dict
 
-def resolve_value(binding: str) -> str:
-    """
-    Resolves a Figma text binding like:
-    $api@https://example.com/data#some.nested.value
-    """
-    if not binding.startswith("$api@"):
-        return binding
-
+def resolve_value(binding: Dict[str, str]) -> str:
     try:
-        _, rest = binding.split("@", 1)
-        url, _, path = rest.partition("#")
+        src = binding.get("src")
+        path = binding.get("path")
 
-        # Step 1: Fetch data from API
-        resp = requests.get(url)
-        resp.raise_for_status()
-        data = resp.json()
+        if not src or not path:
+            print("⚠️ Missing 'src' or 'path' in binding")
+            return "?"
 
-        # Step 2: Traverse the dot-path
-        for key in path.strip("/").split("."):
-            data = data.get(key)
-            if data is None:
+        response = requests.get(src)
+        response.raise_for_status()
+        data = response.json()
+
+        for key in path.split("."):
+            if not isinstance(data, dict) or key not in data:
+                print(f"⚠️ Path key not found: {key}")
                 return "?"
+            data = data[key]
+
         return str(data)
 
     except Exception as e:
-        print(f"⚠️ Error resolving API value for {binding}: {e}")
+        print(f"⚠️ Error resolving API value: {e}")
         return "?"

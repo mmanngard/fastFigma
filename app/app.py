@@ -1,9 +1,10 @@
 import os
 from dotenv import load_dotenv
-from fasthtml.common import fast_app, Html, Body, Div
+from fasthtml.common import fast_app, Html, Body, Div, P
 from .components.head import get_head_component
 from fastFigma.project import FigmaProject
 from fastFigma.export import figma_to_fasthtml
+from fastFigma.api import resolve_value
 
 load_dotenv()
 
@@ -41,3 +42,10 @@ def home():
             Div(*widgets, cls="figma-widgets-container flex flex-col space-y-4 p-8")
         )
     )
+
+@rt("/api/value")
+def get_value(src: str = "", path: str = ""):
+    if not src or not path:
+        return "?"
+    from fastFigma.api import resolve_value
+    return resolve_value({"src": src, "path": path})
