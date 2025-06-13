@@ -2,7 +2,7 @@
 import inspect
 from typing import Any, Dict, List, Union, Optional
 from pydantic import BaseModel
-from fasthtml.common import Div, P, Img
+from fasthtml.common import Div, P, Img, Safe
 from fastFigma.schema import FrameNode, TextNode, VectorNode, Effect
 
 Node = Union[Dict[str, Any], FrameNode, TextNode, VectorNode]
@@ -174,9 +174,15 @@ def render_node(
 
     if isinstance(m, TextNode):
         return P(m.characters or "", **attrs)
+    
     if isinstance(m, VectorNode):
-        src = svg_map.get(m.id, "") if svg_map else ""
-        return Img(src=src, alt=m.name or "", **attrs)
+        svg = svg_map.get(m.id, "") if svg_map else ""
+        if svg.strip().startswith("<svg"):
+            # This is raw markup — insert inline safely
+            return Div(Safe(svg), **attrs)
+        else:
+            # Fallback: treat it as a URL for <img>
+            return Img(src=svg, alt=m.name or "", **attrs)
 
     children = [figma_to_fasthtml(c, svg_map) for c in (m.children or [])]
     return Div(*children, **attrs)
