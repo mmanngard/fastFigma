@@ -59,9 +59,21 @@ FRAME_TW_MAP: Dict[str, Union[Dict[Any, List[str]], Any]] = {
 
     "cornerRadius": lambda v: [f"rounded-[{int(v)}px]"],
 
-    "absoluteBoundingBox": lambda b: [
-        f"w-[{int(b.width)}px]", f"h-[{int(b.height)}px]"
-    ],
+    "absoluteBoundingBox": lambda b, m=None: (
+        [] if not m or not b else
+        (
+            (
+                ["w-full"] if getattr(m, "layoutSizingHorizontal", None) == "FILL" else
+                [f"w-[{int(b.width)}px]"] if getattr(m, "layoutSizingHorizontal", None) == "FIXED" else
+                ["w-max"] if getattr(m, "layoutSizingHorizontal", None) == "HUG" else []
+            ) +
+            (
+                ["h-full"] if getattr(m, "layoutSizingVertical", None) == "FILL" else
+                [f"h-[{int(b.height)}px]"] if getattr(m, "layoutSizingVertical", None) == "FIXED" else
+                ["h-max"] if getattr(m, "layoutSizingVertical", None) == "HUG" else []
+            )
+        )
+    ),
 
     # Background color from fills
     "fills": lambda paints, m=None: [

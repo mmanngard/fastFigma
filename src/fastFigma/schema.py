@@ -67,8 +67,8 @@ class FrameNode(BaseModel):
     clipsContent:            Optional[bool] = None
     layoutMode:              Optional[Literal["HORIZONTAL","VERTICAL"]] = None
     itemSpacing:             Optional[float] = None
-    primaryAxisSizingMode:   Optional[str] = None
-    counterAxisAlignItems:   Optional[str] = None
+    primaryAxisSizingMode:   Optional[Literal["FIXED", "AUTO", "FILL"]] = None  # HORIZONTAL axis
+    counterAxisSizingMode:   Optional[Literal["FIXED", "AUTO", "FILL"]] = None
     layoutGrow:              Optional[float] = None
     layoutAlign:             Optional[str] = None
     layoutWrap:              Optional[str] = None
